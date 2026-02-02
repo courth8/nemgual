@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA DE MONITORAMENTO V3.0</title>
+    <style>
+        body { 
+            /* AQUI ESTÁ A MUDANÇA: GIF DE FUNDO + MÁSCARA ESCURA */
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), 
+                        url('https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUydHJldnRlcGxmY2psMWs1dXUxMDl3Y3Jia202cHpjcmQ5MnV6Y3p1cSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/91xAa5qzIizZJmFDxa/giphy.gif');
+            
+            background-size: cover;       /* Cobre toda a tela */
+            background-position: center;  /* Centraliza */
+            background-repeat: no-repeat; /* Não repete */
+            background-attachment: fixed; /* Fundo fixo ao rolar */
+
+            color: #00ff00; 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .terminal { 
+            background: rgba(0, 15, 0, 0.90); /* Leve transparência para ver o fundo de leve */
+            border: 2px solid #00ff00; 
+            width: 90%; 
+            max-width: 600px; 
+            padding: 25px; 
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2); 
+            backdrop-filter: blur(2px); /* Efeito de vidro leve */
+        }
+        .alert-header { 
+            color: #ff0000; 
+            font-weight: bold; 
+            text-align: center; 
+            border-bottom: 2px solid #ff0000; 
+            padding-bottom: 10px; 
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .row { margin: 15px 0; font-size: 0.9rem; line-height: 1.4; }
+        .label { color: #888; font-weight: bold; }
+        .value { color: #fff; text-shadow: 0 0 5px #fff; }
+        #loading { text-align: center; font-style: italic; }
+        .footer { 
+            margin-top: 20px; 
+            font-size: 0.7rem; 
+            color: red; 
+            text-align: center; 
+            border-top: 1px solid #333; 
+            padding-top: 10px; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <div class="alert-header">⚠️ Conexão Monitorada pela Rede Escolar ⚠️</div>
+    
+    <div id="loading">Iniciando varredura de pacotes...</div>
+    
+    <div id="display" style="display:none;">
+        <div class="row"><span class="label">ENDEREÇO IP:</span> <span class="value" id="ip"></span></div>
+        <div class="row"><span class="label">CIDADE/ESTADO:</span> <span class="value" id="local"></span></div>
+        <div class="row"><span class="label">PROVEDOR/ROTEADOR:</span> <span class="value" id="isp"></span></div>
+        <div class="row"><span class="label">DISPOSITIVO:</span> <span class="value" id="hardware"></span></div>
+        <div class="row"><span class="label">CONFIG. HARDWARE:</span> <span class="value" id="config"></span></div>
+        <div class="row"><span class="label">NAVEGADOR:</span> <span class="value" id="browser"></span></div>
+        <div class="row"><span class="label">HORÁRIO LOCAL:</span> <span class="value" id="hora"></span></div>
+        
+        <div class="footer">ESTES DADOS FORAM ENVIADOS AO ADMINISTRADOR DO SISTEMA</div>
+    </div>
+</div>
+
+<script>
+    async function collectAllData() {
+        try {
+            // 1. Dados de Rede (IP, Cidade, Estado, ISP)
+            const response = await fetch('https://ipwho.is/');
+            const d = await response.json();
+
+            // 2. Detecção de Hardware (GPU/Placa de Vídeo)
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Informação Bloqueada";
+
+            // 3. Detecção de Modelo (Celular vs PC)
+            const ua = navigator.userAgent;
+            let hardwareInfo = "PC / Desktop";
+            let configInfo = gpu;
+
+            if (/android/i.test(ua)) {
+                const match = ua.match(/Android.*;\s([^;]+)\sBuild/);
+                hardwareInfo = match ? "Celular: " + match[1] : "Celular Android";
+                configInfo = "Mobile Graphics Engine";
+            } else if (/iPhone|iPad/i.test(ua)) {
+                hardwareInfo = "Dispositivo Apple (iOS)";
+                configInfo = "Apple GPU Integrated";
+            } else {
+                // Se for PC, mostra a GPU e a resolução da tela como "configuração"
+                configInfo = `${gpu.split('Direct')[0]} | RAM: ~${navigator.deviceMemory || '8'}+ GB`;
+            }
+
+            // 4. Navegador (Nome simplificado)
+            let browserName = "Desconhecido";
+            if(ua.includes("Chrome")) browserName = "Google Chrome";
+            else if(ua.includes("Firefox")) browserName = "Mozilla Firefox";
+            else if(ua.includes("Safari") && !ua.includes("Chrome")) browserName = "Apple Safari";
+
+            // Preenchendo o HTML
+            document.getElementById('ip').innerText = d.ip;
+            document.getElementById('local').innerText = `${d.city}, ${d.region} (${d.country_code})`;
+            document.getElementById('isp').innerText = d.connection.isp;
+            document.getElementById('hardware').innerText = hardwareInfo;
+            document.getElementById('config').innerText = configInfo;
+            document.getElementById('browser').innerText = browserName;
+
+            // Relógio em tempo real
+            setInterval(() => {
+                const agora = new Date();
+                document.getElementById('hora').innerText = agora.toLocaleTimeString('pt-BR') + " - " + agora.toLocaleDateString('pt-BR');
+            }, 1000);
+
+            // Exibir dados após delay
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('display').style.display = 'block';
+            }, 1800);
+
+        } catch (e) {
+            document.getElementById('loading').innerHTML = "<span style='color:red;'>ERRO CRÍTICO: FALHA NA DESCRIPTOGRAFIA</span>";
+        }
+    }
+
+    collectAllData();
+</script>
+
+</body>
+</html>
